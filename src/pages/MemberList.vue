@@ -16,15 +16,35 @@
       <v-card>
         <v-card-title>{{ editing ? 'Edit Member' : 'Add Member' }}</v-card-title>
         <v-card-text>
-          <v-form>
-            <v-text-field v-model="form.first_name" label="First Name" required></v-text-field>
-            <v-text-field v-model="form.last_name" label="Last Name" required></v-text-field>
-            <v-text-field v-model="form.email" label="Email" required></v-text-field>
-            <v-text-field v-model="form.phone_number" label="Phone Number"></v-text-field>
+          <v-form ref="formRef" v-model="valid">
+            <v-text-field
+              v-model="form.first_name"
+              label="First Name"
+              :rules="[rules.required]"
+              required
+            ></v-text-field>
+            <v-text-field
+              v-model="form.last_name"
+              label="Last Name"
+              :rules="[rules.required]"
+              required
+            ></v-text-field>
+            <v-text-field
+              v-model="form.email"
+              label="Email"
+              :rules="[rules.required, rules.email]"
+              required
+            ></v-text-field>
+            <v-text-field
+              v-model="form.phone_number"
+              label="Phone Number"
+              :rules="[rules.required, rules.phone_number]"
+              required
+            ></v-text-field>
           </v-form>
         </v-card-text>
         <v-card-actions>
-          <v-btn color="primary" @click="saveMember">Save</v-btn>
+          <v-btn color="primary" @click="validateForm">Save</v-btn>
           <v-btn @click="dialog = false">Cancel</v-btn>
         </v-card-actions>
       </v-card>
@@ -40,6 +60,14 @@ const members = ref([]);
 const form = ref({ first_name: '', last_name: '', email: '', phone_number: '' });
 const dialog = ref(false);
 const editing = ref(false);
+const valid = ref(false);
+const formRef = ref(null);
+
+const rules = {
+  required: (value) => !!value || 'This field is required',
+  email: (value) => /.+@.+\..+/.test(value) || 'E-mail must be valid',
+  phone_number: (value) => /^\d{8 }$/.test(value) || 'Phone number must be 10 digits',
+};
 
 const headers = [
   { text: 'First Name', value: 'first_name' },
@@ -51,66 +79,76 @@ const headers = [
 
 // Fetch all members from the API
 function getMembers() {
-  MemberService.getAll().then((response) => {
-    members.value = response.data;
-    console.log(response.data);
-  });
-
-}
-
-function getMembers2() {
   MemberService.getAll()
     .then((response) => {
-      console.log(response.data);  // Check if the data is coming here
-      members.value = response.data;
+      if (response) {
+        members.value = response.data;
+      }
     })
     .catch((error) => {
       console.error('Error fetching members:', error);
     });
 }
 
-
-// Open the form to add a new member
+// Open the dialog to add a new member
 function openDialog() {
-  form.value = { first_name: '', last_name: '', email: '', phone_number: '' };
-  dialog.value = true;
-  editing.value = false;
+  form.value = { first_name: '', last_name: '', email: '', phone_number: '' }; // Reset form
+  editing.value = false; // Set editing to false for "Add Member"
+  dialog.value = true; // Open the dialog
 }
 
 // Edit an existing member
 function editMember(member) {
-  form.value = { ...member };
-  dialog.value = true;
-  editing.value = true;
+  form.value = { ...member }; // Populate the form with selected member data
+  editing.value = true; // Set editing to true for "Edit Member"
+  dialog.value = true; // Open the dialog
+}
+
+// Validate form and save the member if valid
+function validateForm() {
+  formRef.value.validate().then((success) => {
+    if (success) {
+      saveMember(); // Call saveMember if form is valid
+    }
+  });
 }
 
 // Save a member (either creating or updating)
 function saveMember() {
   if (editing.value) {
-    MemberService.update(form.value.id, form.value).then(() => {
-      getMembers();
-      dialog.value = false;
-    });
+    MemberService.update(form.value.id, form.value)
+      .then(() => {
+        getMembers();
+        dialog.value = false;
+      })
+      .catch((error) => {
+        console.error('Error updating member:', error);
+      });
   } else {
-    MemberService.create(form.value).then(() => {
-      getMembers();
-      dialog.value = false;
-    });
+    MemberService.create(form.value)
+      .then(() => {
+        getMembers();
+        dialog.value = false;
+      })
+      .catch((error) => {
+        console.error('Error creating member:', error);
+      });
   }
 }
 
 // Delete a member
 function deleteMember(id) {
-  MemberService.delete(id).then(() => {
-    getMembers();
-  });
+  MemberService.delete(id)
+    .then(() => {
+      getMembers();
+    })
+    .catch((error) => {
+      console.error('Error deleting member:', error);
+    });
 }
 
 // Load members when the component is mounted
 onMounted(() => {
   getMembers();
-  getMembers2();
-  console.log("onMounted is called");
-  console.log(members.value); 
 });
 </script>
